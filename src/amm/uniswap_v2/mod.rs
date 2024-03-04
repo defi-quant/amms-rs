@@ -12,7 +12,7 @@ use ethers::{
     abi::{ethabi::Bytes, RawLog, Token},
     prelude::EthEvent,
     providers::Middleware,
-    types::{Log, H160, H256, U256},
+    types::{Log, H160, H256, I256, U256},
 };
 use num_bigfloat::BigFloat;
 use ruint::Uint;
@@ -169,6 +169,10 @@ impl AutomatedMarketMaker for UniswapV2Pool {
 
             Ok(amount_out)
         }
+    }
+    
+    fn simulate_limit_swap(&self, zero_for_one: bool, amount_specified: I256, sqrt_price_limit_x_96: U256) -> Result<(I256, I256), SwapSimulationError> {
+        unimplemented!()
     }
 
     fn get_token_out(&self, token_in: H160) -> H160 {

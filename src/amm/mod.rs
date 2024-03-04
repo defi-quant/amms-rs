@@ -8,7 +8,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use ethers::{
     providers::Middleware,
-    types::{Log, H160, H256, U256},
+    types::{Log, H160, H256, I256, U256},
 };
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +57,11 @@ pub trait AutomatedMarketMaker {
         amount_in: U256,
     ) -> Result<U256, SwapSimulationError>;
 
+    /// Locally simulates a limit price swap in the AMM.
+    ///
+    /// Returns the amount received for `amount_in` of `token_in` with price limit.
+    fn simulate_limit_swap(&self, zero_for_one: bool, amount_specified: I256, sqrt_price_limit_x_96: U256) -> Result<(I256, I256), SwapSimulationError>;
+
     /// Returns the token out of the AMM for a given `token_in`.
     fn get_token_out(&self, token_in: H160) -> H160;
 }
@@ -103,6 +108,12 @@ macro_rules! amm {
             fn simulate_swap_mut(&mut self, token_in: H160, amount_in: U256) -> Result<U256, SwapSimulationError> {
                 match self {
                     $(AMM::$pool_type(pool) => pool.simulate_swap_mut(token_in, amount_in),)+
+                }
+            }
+
+            fn simulate_limit_swap(&self, zero_for_one: bool, amount_specified: I256, sqrt_price_limit_x_96: U256) -> Result<(I256, I256), SwapSimulationError> {
+                match self {
+                    $(AMM::$pool_type(pool) => pool.simulate_limit_swap(zero_for_one, amount_specified, sqrt_price_limit_x_96),)+
                 }
             }
 
