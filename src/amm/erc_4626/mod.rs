@@ -146,7 +146,7 @@ impl AutomatedMarketMaker for ERC4626Vault {
     }
 
 
-    fn simulate_limit_swap(&self, zero_for_one: bool, amount_specified: I256, sqrt_price_limit_x_96: U256) -> Result<(I256, I256), SwapSimulationError> {
+    fn simulate_limit_swap(&self, _zero_for_one: bool, _amount_specified: I256, _sqrt_price_limit_x_96: U256) -> Result<(I256, I256), SwapSimulationError> {
         unimplemented!()
     }
 
