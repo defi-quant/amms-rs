@@ -171,8 +171,95 @@ impl AutomatedMarketMaker for UniswapV2Pool {
         }
     }
     
-    fn simulate_limit_swap(&self, _zero_for_one: bool, _amount_specified: I256, _sqrt_price_limit_x_96: U256) -> Result<(I256, I256), SwapSimulationError> {
-        unimplemented!()
+    fn simulate_limit_swap(&self, zero_for_one: bool, amount_specified: I256, sqrt_price_limit_x_96: U256) -> Result<(I256, I256), SwapSimulationError> {
+        tracing::info!(?zero_for_one, ?amount_specified, ?sqrt_price_limit_x_96, "simulating limit swap");
+
+        if amount_specified.is_zero() {
+            return Ok((I256::zero(), I256::zero()));
+        }
+
+        // let current_price = (reserve_1 * reserve_0).integer_sqrt() * U256::from(2_u128.pow(96)) / reserve_1;
+        // println!("current_price: {}, sqrt_price_limit_x_96: {}", current_price, sqrt_price_limit_x_96);
+        // if !zero_for_one {
+        //     if !(sqrt_price_limit_x_96 < current_price && sqrt_price_limit_x_96 > U256::zero()) {
+        //         return Err(SwapSimulationError::InvalidPriceLimit);
+        //     }
+        // } else {
+        //     if !(sqrt_price_limit_x_96 > current_price) {
+        //         return Err(SwapSimulationError::InvalidPriceLimit);
+        //     }
+        // }
+
+        let exact_input = amount_specified > I256::zero();
+        let res;
+        if exact_input {
+            // let (reserve_0, reserve_1) = if zero_for_one { (U256::from(self.reserve_0), U256::from(self.reserve_1)) } else { (U256::from(self.reserve_1), U256::from(self.reserve_0))};
+            let (reserve_0, reserve_1) = (U256::from(self.reserve_0), U256::from(self.reserve_1));
+            // 卖出exact token的情形
+            // 根据输入计算输出
+            let amount_in = U256::from(amount_specified.as_u128());
+            let amount_out = self.get_amount_out(
+                amount_in,
+                reserve_0,
+                reserve_1,
+            );
+            // 根据价格计算输入输出
+            let amount_in_limited_in_price = self.get_amount_limited_in_price(
+                sqrt_price_limit_x_96,
+                reserve_0,
+                reserve_1,
+            );
+            let amount_out_limited_in_price = self.get_amount_out(
+                amount_in_limited_in_price,
+                reserve_0,
+                reserve_1,
+            );
+            // 比较最优输入输出
+            if amount_in_limited_in_price < amount_in {
+                res = (I256::from_raw(amount_in_limited_in_price), -I256::from_raw(amount_out_limited_in_price));
+            } else {
+                res = (I256::from_raw(amount_in), -I256::from_raw(amount_out));
+            }
+            Ok(res)
+            // if zero_for_one {
+            //     Ok(res)
+            // } else {
+            //     Ok((res.1, res.0))
+            // }
+        } else {
+            // let (reserve_0, reserve_1) = if zero_for_one { (U256::from(self.reserve_1), U256::from(self.reserve_0)) } else { (U256::from(self.reserve_0), U256::from(self.reserve_1))};
+            let (reserve_0, reserve_1) = (U256::from(self.reserve_0), U256::from(self.reserve_1));
+            // 买入exact token的情形
+            let amount_out = U256::from(amount_specified.abs().as_u128());
+            let amount_in = self.get_amount_in(
+                amount_out,
+                reserve_1,
+                reserve_0,
+            );
+            // 根据价格计算输入输出
+            let amount_out_limited_in_price = self.get_amount_limited_in_price(
+                sqrt_price_limit_x_96,
+                reserve_0,
+                reserve_1,
+            );
+            let amount_in_limited_in_price = self.get_amount_out(
+                amount_out_limited_in_price,
+                reserve_0,
+                reserve_1,
+            );
+            // 比较最优输入输出
+            if amount_in_limited_in_price < amount_in {
+                res = (-I256::from_raw(amount_out_limited_in_price), I256::from_raw(amount_in_limited_in_price));
+            } else {
+                res = (-I256::from_raw(amount_out), I256::from_raw(amount_in));
+            }
+            Ok(res)
+            // if zero_for_one {
+            //     Ok((res.1, res.0))
+            // } else {
+            //     Ok(res)
+            // }
+        }
     }
 
     fn get_token_out(&self, token_in: H160) -> H160 {
@@ -434,6 +521,46 @@ impl UniswapV2Pool {
         numerator / denominator
     }
 
+    /// Calculates the amount payed for a given `amount_out` `reserve_in` and `reserve_out`.
+    /// y = (a * x ) / ((b - x) * r)
+    pub fn get_amount_in(&self, amount_out: U256, reserve_in: U256, reserve_out: U256) -> U256 {
+        tracing::trace!(?amount_out, ?reserve_in, ?reserve_out);
+
+        if amount_out.is_zero() || reserve_in.is_zero() || reserve_out.is_zero() {
+            return U256::zero();
+        }
+        let fee = (10000 - (self.fee / 10)) / 10; //Fee of 300 => (10,000 - 30) / 10  = 997
+        // let amount_in_with_fee = amount_in * U256::from(fee);
+        let numerator = reserve_in * amount_out;
+        let denominator = reserve_out - amount_out;
+        let amount_in_with_fee = numerator * U256::from(1000) / (denominator * U256::from(fee));
+
+        tracing::trace!(?fee, ?amount_in_with_fee, ?numerator, ?denominator);
+
+        amount_in_with_fee
+    }
+
+    /// Calculates the amount received for a given `reserve_in` and `reserve_out` with in price limit.
+    fn get_amount_limited_in_price(&self, sqrt_price_limit_x_96: U256, reserve_in: U256, reserve_out: U256) -> U256 {
+        tracing::trace!(?sqrt_price_limit_x_96, ?reserve_in, ?reserve_out);
+
+        if sqrt_price_limit_x_96.is_zero() || reserve_in.is_zero() || reserve_out.is_zero() {
+            return U256::zero();
+        }
+        let fee = (10000 - (self.fee / 10)) / 10; //Fee of 300 => (10,000 - 30) / 10  = 997
+        println!("fee: {}", fee);
+        let fee = U256::from(fee);
+        let tmp = (reserve_in * reserve_out * fee / U256::from(1000)).integer_sqrt();
+        let tmp = tmp * U256::from(2_u128.pow(96)) / sqrt_price_limit_x_96;
+        let res = if reserve_in > tmp {
+            reserve_in - tmp
+        } else {
+            tmp - reserve_in
+        };
+        let res = res * U256::from(1000) / fee;
+        res
+    }
+
     /// Returns the calldata for a swap.
     pub fn swap_calldata(
         &self,
@@ -577,12 +704,40 @@ mod tests {
 
     use ethers::{
         providers::{Http, Provider},
-        types::{H160, U256},
+        types::{H160, I256, U256},
     };
 
     use crate::amm::AutomatedMarketMaker;
 
     use super::UniswapV2Pool;
+    
+    #[test]
+    fn test_get_amount_in() -> eyre::Result<()> {
+        let mut uniswap_v2_pool = UniswapV2Pool::default();
+        uniswap_v2_pool.fee = 300;
+        let decimal = 10_u128.pow(18);
+        let reserve_in = U256::from(25386_u128 * decimal);     // current price: 78932279 / 25386 = 3109 
+        let reserve_out = U256::from(78932279_u128 * decimal);
+        let amount_in = U256::from(420_u128 * decimal);
+        let amount_out = uniswap_v2_pool.get_amount_out(amount_in, reserve_in, reserve_out);
+        assert_eq!(amount_out, U256::from(1280853924839389972539928_u128));
+        let amount_in_expected = uniswap_v2_pool.get_amount_in(amount_out, reserve_in, reserve_out);
+        assert_eq!(amount_in - 1, amount_in_expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_amount_limited_in_price() -> eyre::Result<()> {
+        let mut uniswap_v2_pool = UniswapV2Pool::default();
+        uniswap_v2_pool.fee = 300;
+        let sqrt_price_limit_x_96 = U256::from(4339505179874779700000000000000_u128);   // equal to price 3000
+        let reserve_in = U256::from(25386);     // current price: 78932279 / 25386 = 3109 
+        let reserve_out = U256::from(78932279);
+        let amount_out = uniswap_v2_pool.get_amount_limited_in_price(sqrt_price_limit_x_96, reserve_in, reserve_out);
+        assert_eq!(amount_out, U256::from(420));
+        Ok(())
+    }
 
     #[test]
     fn test_swap_calldata() -> eyre::Result<()> {
@@ -724,6 +879,64 @@ mod tests {
 
         assert_eq!(30591574867092394336528, price_b_64_x);
         assert_eq!(11123401407064628, price_a_64_x);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulate_limit_swap_weth_usdt()  -> eyre::Result<()> {
+        let pool = UniswapV2Pool {
+            fee: 300,
+            reserve_0: 25386,
+            reserve_1: 78932279,    // price: 78932279 / 25386 = 3109
+            ..Default::default()
+        };
+        // sell 1 eth for usdt with price limit 3000
+        let zero_for_one = true;
+        let amount_specified = I256::from(1);
+        let sqrt_price_limit_x_96 = U256::from(4339505179874779700000000000000_u128);   // equal to price 3000
+        let (token_a_delta, token_b_delta) = pool.simulate_limit_swap(zero_for_one, amount_specified, sqrt_price_limit_x_96)?;
+        assert_eq!(token_a_delta, I256::from(1));
+        assert_eq!(token_b_delta, -I256::from(3099));
+        println!("token_a_delta: {}, token_b_delta: {}", token_a_delta, token_b_delta);
+
+        // sell 1000 eth for usdt with price limit 3000
+        let zero_for_one = true;
+        let amount_specified = I256::from(1000);
+        let sqrt_price_limit_x_96 = U256::from(4339505179874779700000000000000_u128);   // equal to price 3000
+        let (token_a_delta, token_b_delta) = pool.simulate_limit_swap(zero_for_one, amount_specified, sqrt_price_limit_x_96)?;
+        assert_eq!(token_a_delta, I256::from(420));
+        assert_eq!(token_b_delta, -I256::from(1280853));
+        println!("token_a_delta: {}, token_b_delta: {}", token_a_delta, token_b_delta);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulate_limit_swap_usdt_weth()  -> eyre::Result<()> {
+        let pool = UniswapV2Pool {
+            fee: 300,
+            reserve_0: 25386,
+            reserve_1: 78932279,    // price: 78932279 / 25386 = 3109
+            ..Default::default()
+        };
+        // sell 1 eth for usdt with price limit 3000
+        let zero_for_one = false;
+        let amount_specified = I256::from(-1);
+        let sqrt_price_limit_x_96 = U256::from(4481821677982891400000000000000_u128);   // equal to price 3200
+        let (token_a_delta, token_b_delta) = pool.simulate_limit_swap(zero_for_one, amount_specified, sqrt_price_limit_x_96)?;
+        assert_eq!(token_a_delta, I256::from(-1));
+        assert_eq!(token_b_delta, I256::from(3118));
+        println!("token_a_delta: {}, token_b_delta: {}", token_a_delta, token_b_delta);
+
+        // sell 1000 eth for usdt with price limit 3000
+        let zero_for_one = false;
+        let amount_specified = I256::from(-1000);
+        let sqrt_price_limit_x_96 = U256::from(4481821677982891400000000000000_u128);   // equal to price 3200
+        let (token_a_delta, token_b_delta) = pool.simulate_limit_swap(zero_for_one, amount_specified, sqrt_price_limit_x_96)?;
+        assert_eq!(token_a_delta, I256::from(-401));
+        assert_eq!(token_b_delta, I256::from(1223808));
+        println!("token_a_delta: {}, token_b_delta: {}", token_a_delta, token_b_delta);
 
         Ok(())
     }
