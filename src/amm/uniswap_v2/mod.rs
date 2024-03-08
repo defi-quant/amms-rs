@@ -194,8 +194,8 @@ impl AutomatedMarketMaker for UniswapV2Pool {
         let exact_input = amount_specified > I256::zero();
         let res;
         if exact_input {
-            // let (reserve_0, reserve_1) = if zero_for_one { (U256::from(self.reserve_0), U256::from(self.reserve_1)) } else { (U256::from(self.reserve_1), U256::from(self.reserve_0))};
-            let (reserve_0, reserve_1) = (U256::from(self.reserve_0), U256::from(self.reserve_1));
+            let (reserve_0, reserve_1) = if zero_for_one { (U256::from(self.reserve_0), U256::from(self.reserve_1)) } else { (U256::from(self.reserve_1), U256::from(self.reserve_0))};
+            // let (reserve_0, reserve_1) = (U256::from(self.reserve_0), U256::from(self.reserve_1));
             // 卖出exact token的情形
             // 根据输入计算输出
             let amount_in = U256::from(amount_specified.as_u128());
@@ -225,15 +225,15 @@ impl AutomatedMarketMaker for UniswapV2Pool {
                 res = (I256::from_raw(amount_in), -I256::from_raw(amount_out));
             }
             println!("res: {:?}", res);
-            Ok(res)
-            // if zero_for_one {
-            //     Ok(res)
-            // } else {
-            //     Ok((res.1, res.0))
-            // }
+            // Ok(res)
+            if zero_for_one {
+                Ok(res)
+            } else {
+                Ok((res.1, res.0))
+            }
         } else {
-            // let (reserve_0, reserve_1) = if zero_for_one { (U256::from(self.reserve_1), U256::from(self.reserve_0)) } else { (U256::from(self.reserve_0), U256::from(self.reserve_1))};
-            let (reserve_0, reserve_1) = (U256::from(self.reserve_0), U256::from(self.reserve_1));
+            let (reserve_0, reserve_1) = if zero_for_one { (U256::from(self.reserve_1), U256::from(self.reserve_0)) } else { (U256::from(self.reserve_0), U256::from(self.reserve_1))};
+            // let (reserve_0, reserve_1) = (U256::from(self.reserve_0), U256::from(self.reserve_1));
             // 买入exact token的情形
             let amount_out = U256::from(amount_specified.abs().as_u128());
             let amount_in = self.get_amount_in(
@@ -249,10 +249,10 @@ impl AutomatedMarketMaker for UniswapV2Pool {
                 reserve_1,
             );
             let amount_out_limited_in_price = if amount_out_limited_in_price > I256::zero() { U256::from(amount_out_limited_in_price.as_u128()) } else { U256::zero() };
-            let amount_in_limited_in_price = self.get_amount_out(
+            let amount_in_limited_in_price = self.get_amount_in(
                 amount_out_limited_in_price,
-                reserve_0,
                 reserve_1,
+                reserve_0,
             );
             println!("amount_in_limited_in_price: {}, amount_out_limited_in_price: {}", amount_in_limited_in_price, amount_out_limited_in_price);
             // 比较最优输入输出
@@ -262,12 +262,12 @@ impl AutomatedMarketMaker for UniswapV2Pool {
                 res = (-I256::from_raw(amount_out), I256::from_raw(amount_in));
             }
             println!("res: {:?}", res);
-            Ok(res)
-            // if zero_for_one {
-            //     Ok((res.1, res.0))
-            // } else {
-            //     Ok(res)
-            // }
+            // Ok(res)
+            if zero_for_one {
+                Ok((res.1, res.0))
+            } else {
+                Ok(res)
+            }
         }
     }
 
