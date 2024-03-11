@@ -60,7 +60,7 @@ impl UniswapV2Factory {
         let pairs_length: U256 = factory.all_pairs_length().call().await?;
 
         let mut pairs = vec![];
-        let step = 766; //max batch size for this call until codesize is too large
+        let step = 76; //max batch size for this call until codesize is too large
         let mut idx_from = U256::zero();
         let mut idx_to = if step > pairs_length.as_usize() {
             pairs_length
@@ -158,7 +158,7 @@ impl AutomatedMarketMakerFactory for UniswapV2Factory {
         block_number: Option<u64>,
         middleware: Arc<M>,
     ) -> Result<(), AMMError<M>> {
-        let step = 127; //Max batch size for call
+        let step = 76; //Max batch size for call
         for amm_chunk in amms.chunks_mut(step) {
             batch_request::get_amm_data_batch_request(amm_chunk, block_number, middleware.clone()).await?;
         }

@@ -535,6 +535,9 @@ impl UniswapV2Pool {
     pub fn get_amount_in(&self, amount_out: U256, reserve_in: U256, reserve_out: U256) -> U256 {
         tracing::trace!(?amount_out, ?reserve_in, ?reserve_out);
 
+        if reserve_out < amount_out {
+            return U256::MAX;
+        }
         if amount_out.is_zero() || reserve_in.is_zero() || reserve_out.is_zero() {
             return U256::zero();
         }
