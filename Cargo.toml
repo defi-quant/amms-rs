@@ -18,7 +18,7 @@ exclude = [
 async-recursion = "1.0.5"
 anyhow = "1.0"
 arraydeque = { version = "0.5.1", optional = true }
-artemis-core = { git = "https://github.com/paradigmxyz/artemis.git", branch = "main" }
+artemis-core = { git = "https://github.com/paradigmxyz/artemis.git", rev = "4bb1580" }
 async-trait = "0.1"
 criterion = "0.5.1"
 ethers = { version = "2.0.11", default-features = true, features = ["abigen", "ws", "ipc", "rustls"] } # TODO: update this to aloy
@@ -34,7 +34,7 @@ thiserror = "1.0"
 tokio = { version = "1.29.1", features = ["full"] }
 tokio-stream = "0.1.14"
 tracing = "0.1.40"
-uniswap_v3_math = { git = "https://github.com/0xKitsune/uniswap-v3-math.git", branch = "main" } #TODO: publish updated crate, move to ruint
+uniswap_v3_math = { git = "https://github.com/0xKitsune/uniswap-v3-math.git", rev = "0d4de89" } #TODO: publish updated crate, move to ruint
 #TODO: use telemetry batteries, update to have prometheus battery
 
 [features]
