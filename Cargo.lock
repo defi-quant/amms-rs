@@ -257,7 +257,7 @@ checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
 [[package]]
 name = "artemis-core"
 version = "0.1.0"
-source = "git+https://github.com/paradigmxyz/artemis.git?branch=main#4bb158070833ec2b789a2ece14c896c4b28ce3be"
+source = "git+https://github.com/paradigmxyz/artemis.git?rev=4bb1580#4bb158070833ec2b789a2ece14c896c4b28ce3be"
 dependencies = [
  "anyhow",
  "async-trait",
