@@ -36,7 +36,7 @@ pub async fn discover_erc_4626_vaults<M: Middleware>(
 
     let mut from_block = 0;
     //TODO: make this async
-    while from_block < current_block {
+    while from_block <= current_block {
         //Get pair created event logs within the block range
         let mut to_block = from_block + step - 1;
         if to_block > current_block {

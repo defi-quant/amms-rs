@@ -59,7 +59,7 @@ pub async fn discover_factories<M: Middleware>(
     let mut identified_factories: HashMap<H160, (Factory, u64)> = HashMap::new();
 
     //TODO: make this async
-    while from_block < current_block {
+    while from_block <= current_block {
         //Get pair created event logs within the block range
         let mut target_block = from_block + step - 1;
         if target_block > current_block {
