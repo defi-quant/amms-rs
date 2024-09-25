@@ -79,6 +79,10 @@ where
         }
     }
 
+    pub fn get_latest_synced_block(&self) -> u64 {
+        self.latest_synced_block
+    }
+
     pub async fn filter(&self) -> Filter {
         let mut event_signatures: Vec<H256> = vec![];
         let mut amm_variants = HashSet::new();
